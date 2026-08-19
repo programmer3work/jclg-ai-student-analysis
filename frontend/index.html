@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JCLG AI Student Analysis</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <h1>JCLG</h1>
+    <p>AI Student Analysis</p>
+  </div>
+  <div class="header-actions">
+    <span id="connectionStatus" class="status-badge">Checking connection...</span>
+    <button type="button" class="header-button" onclick="refreshStudents()">Refresh</button>
+  </div>
+</header>
+
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-section="dashboard" onclick="showSection('dashboard', this)">Dashboard</button>
+      <button class="nav-item" data-section="performance" onclick="showSection('performance', this)">Performance Trends</button>
+      <button class="nav-item" data-section="engagement" onclick="showSection('engagement', this)">Engagement Analysis</button>
+      <button class="nav-item" data-section="risk" onclick="showSection('risk', this)">Risk Indicators <span id="riskNavBadge" class="nav-badge"></span></button>
+      <button class="nav-item" data-section="recommendations" onclick="showSection('recommendations', this)">AI Recommendations</button>
+      <button class="nav-item" data-section="alerts" onclick="showSection('alerts', this)">Alerts & Reports</button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Dashboard -->
+    <section id="dashboardSection" class="page-section active-section">
+      <div class="section-heading"><div><span class="eyebrow">Smart solutions for student welfare</span><h2>Dashboard</h2></div><div id="selectedStudentContext" class="student-context">All students</div></div>
+      <div class="summary-grid">
+        <div class="summary-card"><div>Total Students</div><div id="totalStudents">—</div></div>
+        <div class="summary-card"><div>High Risk</div><div id="highRiskCount">—</div></div>
+        <div class="summary-card"><div>Improving</div><div id="improvingCount">—</div></div>
+        <div class="summary-card"><div>AI Insights</div><div id="aiInsightsCount">—</div></div>
+        <div class="summary-card"><div>API Status</div><div id="apiStatus">—</div></div>
+      </div>
+      <div class="dashboard-status"><div id="dashboardMessage">Loading live student data...</div><span id="lastUpdated"></span></div>
+      <div class="table-header"><h3>Students</h3><div class="table-tools"><input id="studentSearch" type="search" placeholder="Search students..." oninput="filterStudents()"><span id="studentCountLabel"></span></div></div>
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Branch</th><th>Section</th><th>Parent</th><th>Risk</th></tr></thead>
+        <tbody id="dashboardStudentBody"></tbody>
+      </table>
+      <div id="studentProfile" class="profile-panel hidden-panel"></div>
+    </section>
+
+    <!-- Performance Trends -->
+    <section id="performanceSection" class="page-section">
+      <h2>Performance Trends</h2>
+      <div id="performanceContext" class="module-context"></div>
+      <select id="performanceStudent" onchange="loadPerformanceTrends()"></select>
+      <button onclick="loadPerformanceTrends()">Load</button>
+      <div class="module-error" role="status"></div>
+      <div id="performanceSummary" class="metric-grid"></div>
+      <div id="performanceChart" class="chart-area"></div>
+      <div id="performanceTable"></div>
+    </section>
+
+    <!-- Engagement Analysis -->
+    <section id="engagementSection" class="page-section">
+      <h2>Engagement Analysis</h2>
+      <div id="engagementContext" class="module-context"></div>
+      <select id="engagementStudent" onchange="loadEngagementAnalysis()"></select>
+      <button onclick="loadEngagementAnalysis()">Load</button>
+      <div class="module-error" role="status"></div>
+      <div id="engagementSummary" class="metric-grid"></div>
+      <div class="engagement-layout">
+        <div id="engagementChart" class="chart-area"></div>
+        <div id="engagementBreakdown" class="engagement-breakdown"></div>
+      </div>
+    </section>
+
+    <!-- Risk Indicators -->
+    <section id="riskSection" class="page-section">
+      <h2>Risk Indicators</h2>
+      <div class="module-error" role="status"></div>
+      <div class="risk-controls">
+        <select id="riskStreamFilter" onchange="renderRiskTable()"><option value="">All branches</option></select>
+        <select id="riskLevelFilter" onchange="renderRiskTable()"></select>
+      </div>
+      <div id="riskSummary" class="metric-grid"></div>
+      <div class="risk-layout">
+        <div id="riskChart" class="chart-area"></div>
+        <div id="riskLegend" class="risk-legend"></div>
+      </div>
+      <div id="highRiskList"></div>
+    </section>
+
+    <!-- AI Recommendations -->
+    <section id="recommendationsSection" class="page-section">
+      <h2>AI Recommendations</h2>
+      <div class="recommendation-toolbar">
+        <select id="recommendationStudent" onchange="syncRecommendationStream()"></select>
+        <select id="recommendationStream"></select>
+        <select id="recommendationLanguage"></select>
+        <button onclick="loadRecommendations()">Generate</button>
+      </div>
+      <div class="recommendation-intro"><span class="spark-mark">✦</span><div><strong>Personalized learning brief</strong><small>Choose a student and stream to surface the latest insight.</small></div></div>
+      <div id="recommendationReport"></div>
+    </section>
+
+    <!-- Alerts & Reports -->
+    <section id="alertsSection" class="page-section">
+      <h2>Alerts & Reports</h2>
+      <div id="alertsList" class="metric-grid"></div>
+      <label class="field-label" for="alertsClass">Choose Branch</label>
+      <select id="alertsClass" onchange="loadClassReport()"></select>
+      <button onclick="loadClassReport()">Load Report</button>
+      <div class="module-error" role="status"></div>
+      <div class="report-tabs" role="tablist">
+        <button class="report-tab active" data-report-tab="alertsReport" onclick="showReportTab('alertsReport', this)">Alerts</button>
+        <button class="report-tab" data-report-tab="insightsReport" onclick="showReportTab('insightsReport', this)">AI Insights</button>
+        <button class="report-tab" data-report-tab="resultsReport" onclick="showReportTab('resultsReport', this)">Results</button>
+      </div>
+      <div id="alertsReport" class="report-panel"></div>
+      <div id="insightsReport" class="report-panel hidden-panel"></div>
+      <div id="resultsReport" class="report-panel hidden-panel"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+"use strict";
+const API_BASE_URL = window.APP_CONFIG.apiBaseUrl;
+const API_ENDPOINTS = window.APP_CONFIG.endpoints;
+let students = [];
+let applicationConfig = {};
+let filteredStudents = [];
+let riskStudents = [];
+let riskLookup = new Map();
+
+// Navigation
+async function showSection(sectionName, btn) {
+  document.querySelectorAll(".page-section").forEach(s => s.classList.remove("active-section"));
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  document.getElementById(sectionName + "Section").classList.add("active-section");
+  btn.classList.add("active");
+  const loaders = {
+    performance: loadPerformanceTrends,
+    engagement: loadEngagementAnalysis,
+    risk: loadRiskIndicators,
+    alerts: loadClassReport
+  };
+  if (loaders[sectionName]) {
+    try {
+      await loaders[sectionName]();
+    } catch (error) {
+      const section = document.getElementById(sectionName + "Section");
+      const message = section.querySelector(".module-error");
+      if (message) message.textContent = "Unable to load this module. Use Refresh to retry.";
+    }
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;"
+  }[character]));
+}
+
+async function fetchJson(endpoint, options) {
+  const response = await fetch(API_BASE_URL + endpoint, options);
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  return response.json();
+}
+
+function renderTable(containerId, columns, rows, emptyMessage) {
+  const container = document.getElementById(containerId);
+  if (!rows || !rows.length) {
+    container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="table-scroll"><table class="data-table"><thead><tr>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${column.render ? column.render(row) : escapeHtml(row[column.key])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderMetrics(containerId, metrics) {
+  document.getElementById(containerId).innerHTML = metrics.map(metric => `<div class="metric-card"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.value)}</strong></div>`).join("");
+}
+
+function setButtonBusy(button, busy, label) {
+  if (!button) return;
+  button.disabled = busy;
+  button.dataset.defaultLabel ||= button.textContent;
+  button.textContent = busy ? label : button.dataset.defaultLabel;
+}
+
+function showReportTab(panelId, button) {
+  document.querySelectorAll(".report-panel").forEach(panel => panel.classList.add("hidden-panel"));
+  document.querySelectorAll(".report-tab").forEach(tab => tab.classList.remove("active"));
+  document.getElementById(panelId).classList.remove("hidden-panel");
+  button.classList.add("active");
+}
+
+// Connection
+async function checkConnection() {
+  try {
+    const data = await fetchJson(API_ENDPOINTS.health);
+    document.getElementById("connectionStatus").textContent = data.status === "healthy" ? "Connected" : "Disconnected";
+    document.getElementById("apiStatus").textContent = data.status;
+    await Promise.all([loadConfig(), loadDashboard(), loadStudents(), loadRiskIndicators()]);
+  } catch {
+    document.getElementById("connectionStatus").textContent = "Disconnected";
+    document.getElementById("apiStatus").textContent = "Error";
+    document.getElementById("dashboardMessage").textContent = "Unable to load dashboard data.";
+  }
+}
+
+// Dashboard
+async function loadDashboard() {
+  const data = await fetchJson(API_ENDPOINTS.statistics);
+  document.getElementById("totalStudents").textContent = data.total_students;
+  document.getElementById("highRiskCount").textContent = data.high_risk;
+  document.getElementById("improvingCount").textContent = data.improving;
+  document.getElementById("aiInsightsCount").textContent = data.ai_insights;
+}
+
+// Students
+async function loadStudents() {
+  const data = await fetchJson(API_ENDPOINTS.students);
+  students = data.value || [];
+  filteredStudents = students;
+  document.getElementById("dashboardMessage").textContent = "Students loaded.";
+  document.getElementById("studentCountLabel").textContent = `${students.length} records`;
+  renderStudentRows();
+  populateDropdown("performanceStudent");
+  populateDropdown("engagementStudent");
+  populateDropdown("recommendationStudent");
+  selectInitialStudents();
+  document.getElementById("lastUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}`;
+}
+
+function renderStudentRows() {
+  document.getElementById("dashboardStudentBody").innerHTML = filteredStudents.map(student => {
+    const risk = riskLookup.get(String(student.student_id));
+    const riskLabel = risk ? `<span class="status-${escapeHtml(risk.risk_level)}">${escapeHtml(risk.risk_level)}</span>` : `<span class="status-unassessed">Unassessed</span>`;
+    return `<tr class="student-row" onclick="showStudentProfile(${student.student_id})"><td>${escapeHtml(student.student_id)}</td><td><strong>${escapeHtml(student.name)}</strong></td><td>${escapeHtml(student.admission_no)}</td><td>${escapeHtml(student.class_name)}</td><td>${escapeHtml(student.section)}</td><td>${escapeHtml(student.parent_name || "Not available")}</td><td>${riskLabel}</td></tr>`;
+  }).join("") || `<tr><td colspan="7"><div class="empty-state">No students match this search.</div></td></tr>`;
+  document.getElementById("studentCountLabel").textContent = `${filteredStudents.length} of ${students.length} records`;
+}
+
+function filterStudents() {
+  const query = document.getElementById("studentSearch").value.trim().toLowerCase();
+  filteredStudents = students.filter(student => [student.name, student.admission_no, student.class_name, student.section, student.parent_name].some(value => String(value || "").toLowerCase().includes(query)));
+  renderStudentRows();
+}
+
+function selectInitialStudents() {
+  ["performanceStudent", "engagementStudent", "recommendationStudent"].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select.value && students.length) select.value = String(students[0].student_id);
+  });
+  syncRecommendationStream();
+}
+
+async function loadConfig() {
+  const res = await fetch(API_BASE_URL + API_ENDPOINTS.config);
+  if (!res.ok) throw new Error("Configuration request failed");
+  applicationConfig = await res.json();
+  populateOptions("recommendationLanguage", applicationConfig.languages, applicationConfig.default_language);
+  populateOptions("recommendationStream", applicationConfig.classes);
+  populateOptions("alertsClass", applicationConfig.classes);
+  populateOptions("riskStreamFilter", applicationConfig.classes, null, null, null, "All branches");
+  populateOptions("riskLevelFilter", applicationConfig.risk_levels, null, null, null, "All risk levels");
+}
+
+function populateOptions(id, options, defaultValue, valueKey, labelKey, placeholderOverride) {
+  const select = document.getElementById(id);
+  const placeholder = placeholderOverride || (select.id === "alertsClass" ? "Choose Branch" : "Choose Option");
+  select.innerHTML = `<option value="">${placeholder}</option>`;
+  (options || []).forEach(option => {
+    const value = valueKey ? option[valueKey] : option;
+    const label = labelKey ? option[labelKey] : option;
+    const selected = value === defaultValue ? " selected" : "";
+    select.innerHTML += `<option value="${value}"${selected}>${label}</option>`;
+  });
+}
+function populateDropdown(id) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = "<option value=''>Choose Student</option>";
+  students.forEach(s => sel.innerHTML += `<option value="${s.student_id}">${escapeHtml(s.name)} · ${escapeHtml(s.admission_no)}</option>`);
+}
+
+function syncRecommendationStream() {
+  const selectedStudent = students.find(student => String(student.student_id) === document.getElementById("recommendationStudent").value);
+  const streamSelect = document.getElementById("recommendationStream");
+  if (!selectedStudent) {
+    streamSelect.value = "";
+    return;
+  }
+  streamSelect.value = selectedStudent.stream_code || selectedStudent.class_name || "";
+}
+
+async function refreshStudents() {
+  document.getElementById("dashboardMessage").textContent = "Loading students...";
+  try {
+    await Promise.all([loadConfig(), loadStudents(), loadDashboard(), loadRiskIndicators()]);
+    document.getElementById("apiStatus").textContent = "healthy";
+  } catch {
+    document.getElementById("dashboardMessage").textContent = "Unable to refresh students.";
+    document.getElementById("apiStatus").textContent = "Error";
+  }
+}
+
+// Performance
+async function loadPerformanceTrends() {
+  const id = document.getElementById("performanceStudent").value;
+  if (!id) return;
+  document.getElementById("performanceSection").querySelector(".module-error").textContent = "";
+  const button = document.querySelector("#performanceSection button");
+  setButtonBusy(button, true, "Loading...");
+  const data = await fetchJson(API_ENDPOINTS.performance + id);
+  const student = students.find(item => String(item.student_id) === id);
+  document.getElementById("performanceContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
+  const rows = data.subjects || [];
+  const average = Number(data.average?.average_marks || 0);
+  renderMetrics("performanceSummary", [{label: "Subjects tracked", value: rows.length}, {label: "Average marks", value: average.toFixed(1)}]);
+  document.getElementById("performanceChart").innerHTML = rows.length ? `<div class="bar-chart">${rows.map(row => `<div class="bar-row"><span>${escapeHtml(row.subject_name || "Subject")}</span><div class="bar-track"><i style="width:${Math.min(Number(row.marks_obtained || 0), 100)}%"></i></div><b>${escapeHtml(row.marks_obtained)}</b></div>`).join("")}</div>` : `<div class="empty-state">No academic records available.</div>`;
+  renderTable("performanceTable", [{label: "Subject", key: "subject_name"}, {label: "Marks", key: "marks_obtained"}, {label: "Average", key: "subject_average"}, {label: "Exam", key: "exam_name"}, {label: "Status", key: "status"}], rows, "No academic records available.");
+  setButtonBusy(button, false);
+}
+
+// Engagement
+async function loadEngagementAnalysis() {
+  const id = document.getElementById("engagementStudent").value;
+  if (!id) return;
+  document.getElementById("engagementSection").querySelector(".module-error").textContent = "";
+  const button = document.querySelector("#engagementSection button");
+  setButtonBusy(button, true, "Loading...");
+  const data = await fetchJson(API_ENDPOINTS.progressSummary + id);
+  const student = students.find(item => String(item.student_id) === id);
+  document.getElementById("engagementContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
+  renderMetrics("engagementSummary", [{label: "Attendance", value: `${data.attendance_percent ?? 0}%`}, {label: "Assignments", value: data.assignments_completed ?? 0}, {label: "Participation", value: data.participation_score ?? 0}, {label: "Status", value: data.status || "No data"}]);
+  const attendance = Math.min(Number(data.attendance_percent || 0), 100);
+  const participation = Math.min(Number(data.participation_score || 0) * 10, 100);
+  document.getElementById("engagementChart").innerHTML = `<div class="attendance-gauge" style="--attendance:${attendance * 3.6}deg"><div><strong>${attendance.toFixed(0)}%</strong><span>attendance</span></div></div>`;
+  document.getElementById("engagementBreakdown").innerHTML = `<div class="signal-row"><span><i class="signal-dot attendance-dot"></i>Attendance</span><strong>${attendance.toFixed(1)}%</strong></div><div class="signal-track"><i style="width:${attendance}%"></i></div><div class="signal-row"><span><i class="signal-dot participation-dot"></i>Participation</span><strong>${Number(data.participation_score || 0).toFixed(1)} / 10</strong></div><div class="signal-track participation-track"><i style="width:${participation}%"></i></div><div class="engagement-note"><span class="pulse-dot"></span>${escapeHtml(data.status || "No status reported")}</div>`;
+  setButtonBusy(button, false);
+}
+
+// Risk
+async function loadRiskIndicators() {
+  document.getElementById("riskSection").querySelector(".module-error").textContent = "";
+  const data = await fetchJson(API_ENDPOINTS.risk);
+  riskStudents = data.students || data.at_risk_students || [];
+  riskLookup = new Map(riskStudents.map(row => [String(row.student_id), row]));
+  renderStudentRows();
+  document.getElementById("riskNavBadge").textContent = data.summary?.high || data.counts?.high || "";
+  const counts = data.counts || {low: 0, moderate: 0, high: 0};
+  const total = Object.values(counts).reduce((sum, value) => sum + Number(value), 0);
+  const highAngle = total ? counts.high / total * 360 : 0;
+  const moderateAngle = total ? (counts.high + counts.moderate) / total * 360 : 0;
+  renderMetrics("riskSummary", [{label: "Low risk", value: counts.low}, {label: "Moderate risk", value: counts.moderate}, {label: "High risk", value: counts.high}]);
+  document.getElementById("riskChart").innerHTML = `<div class="risk-donut" style="--high-angle:${highAngle}deg;--moderate-angle:${moderateAngle}deg"><span>${total}<small>students assessed</small></span></div>`;
+  document.getElementById("riskLegend").innerHTML = [{key: "high", label: "High"}, {key: "moderate", label: "Moderate"}, {key: "low", label: "Low"}].map(item => `<div><i class="legend-${item.key}"></i>${item.label}<strong>${counts[item.key]}</strong></div>`).join("");
+  renderRiskTable();
+  document.getElementById("riskSummary").insertAdjacentHTML("beforeend", `<div class="metric-card risk-refresh"><span>Latest assessment</span><strong>${escapeHtml(data.trend?.at(-1)?.assessed_date || "No date")}</strong></div>`);
+}
+
+function renderRiskTable() {
+  const stream = document.getElementById("riskStreamFilter").value;
+  const level = document.getElementById("riskLevelFilter").value;
+  const filtered = riskStudents.filter(row => (!stream || row.stream_code === stream) && (!level || row.risk_level === level));
+  renderTable("highRiskList", [
+    {label: "Student", key: "name"},
+    {label: "Branch", key: "stream_code"},
+    {label: "Risk", render: row => `<span class="status-${escapeHtml(row.risk_level)}">${escapeHtml(row.risk_level)}</span>`},
+    {label: "Attendance", render: row => `${Number(row.attendance_percent || 0).toFixed(0)}%`},
+    {label: "Average marks", render: row => Number(row.average_marks || 0).toFixed(1)},
+    {label: "Indicator", key: "primary_indicator"},
+    {label: "Recommendation", key: "recommendation"}
+  ], filtered, "No students match these risk filters.");
+}
+
+function showStudentProfile(studentId) {
+  const student = students.find(item => Number(item.student_id) === Number(studentId));
+  const risk = riskLookup.get(String(studentId));
+  if (!student) return;
+  const profile = document.getElementById("studentProfile");
+  profile.classList.remove("hidden-panel");
+  profile.innerHTML = `<div class="profile-header"><div><span class="eyebrow">Student profile</span><h3>${escapeHtml(student.name)}</h3><p>${escapeHtml(student.admission_no)} · ${escapeHtml(student.class_name)} · ${escapeHtml(student.section)}</p></div><button type="button" onclick="document.getElementById('riskProfile').classList.add('hidden-panel')">Close</button></div><div class="profile-grid"><div><span>Parent</span><strong>${escapeHtml(student.parent_name || "Not available")}</strong></div><div><span>Attendance</span><strong>${risk ? `${Number(risk.attendance_percent || 0).toFixed(0)}%` : "Not assessed"}</strong></div><div><span>Average marks</span><strong>${risk ? Number(risk.average_marks || 0).toFixed(1) : "Not assessed"}</strong></div><div><span>Risk</span><strong>${risk ? escapeHtml(risk.risk_level) : "Unassessed"}</strong></div></div>`;
+  profile.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+// Recommendations
+async function loadRecommendations() {
+  const id = document.getElementById("recommendationStudent").value;
+  const courseStream = document.getElementById("recommendationStream").value;
+  const lang = document.getElementById("recommendationLanguage").value;
+  if (!id || !courseStream) return;
+
+  const button = document.querySelector("#recommendationsSection button");
+  setButtonBusy(button, true, "Generating...");
+  const data = await fetchJson(`${API_ENDPOINTS.recommendations}${id}?stream_code=${encodeURIComponent(courseStream)}`);
+  const recommendations = data.recommendations || [];
+  document.getElementById("recommendationReport").innerHTML = recommendations.length
+    ? recommendations.map(item => `<article class="recommendation-card"><p>${escapeHtml(item.recommendation)}</p><small>${escapeHtml(item.stream_code)} | ${escapeHtml(item.analysis_type)} | ${escapeHtml(item.risk_level)}</small></article>`).join("")
+    : `<div class="empty-state">No recommendation is available for this student and stream.</div>`;
+  setButtonBusy(button, false);
+}
+
+async function loadClassReport() {
+  document.getElementById("alertsSection").querySelector(".module-error").textContent = "";
+  const className = document.getElementById("alertsClass").value;
+  const button = document.querySelector("#alertsSection > button");
+  setButtonBusy(button, true, "Loading...");
+  const data = await fetchJson(`${API_ENDPOINTS.reports}${className ? `?stream_code=${encodeURIComponent(className)}` : ""}`);
+  const alerts = data.alerts || [];
+  renderMetrics("alertsList", [{label: "Alerts", value: alerts.length}, {label: "AI insights", value: (data.insights || []).length}, {label: "Results", value: (data.results || []).length}, {label: "AI usage", value: (data.ai_usage || []).length}]);
+  renderTable("alertsReport", [{label: "Type", key: "type"}, {label: "Student", key: "student"}, {label: "Level", key: "level"}, {label: "Message", key: "message"}], alerts, "No alerts for this branch.");
+  renderTable("insightsReport", [{label: "Analysis", key: "analysis_type"}, {label: "Student", key: "name"}, {label: "Risk", key: "risk_level"}, {label: "Recommendation", key: "recommendation"}], data.insights || [], "No AI insights available.");
+  renderTable("resultsReport", [{label: "Student", key: "name"}, {label: "Exam", key: "exam_name"}, {label: "Percentage", key: "percentage"}, {label: "Grade", key: "grade"}, {label: "Status", key: "status"}], data.results || [], "No result records available.");
+  setButtonBusy(button, false);
+}
+
+document.addEventListener("DOMContentLoaded", checkConnection);
+</script>
+</body>
+</html>
