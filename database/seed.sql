@@ -14,8 +14,8 @@ INSERT INTO jclg_group (group_id, group_code, group_name, stream_id) VALUES
     (5, 'HEC-1', 'HEC Group 1', 5)
 ON CONFLICT (group_id) DO UPDATE SET group_code = EXCLUDED.group_code, group_name = EXCLUDED.group_name, stream_id = EXCLUDED.stream_id;
 
-INSERT INTO jclg_student (student_id, user_id, student_code, admission_no, name, class_name, section, stream_id, group_id)
-SELECT values.student_id, values.user_id, values.student_code, values.admission_no, values.name, values.class_name, values.section,
+INSERT INTO jclg_student (student_id, student_code, admission_no, name, class_name, section, stream_id, group_id)
+SELECT values.student_id, values.student_code, values.admission_no, values.name, values.class_name, values.section,
        stream.stream_id, grp.group_id
 FROM (VALUES
     (1, 1, 'STU001', 'JCLG2026001', 'Aarav Reddy', 'MPC', 'MPC-1', 'MPC', 'MPC-1'),
@@ -23,11 +23,11 @@ FROM (VALUES
     (3, 3, 'STU003', 'JCLG2026003', 'Sneha Patel', 'CEC', 'CEC-1', 'CEC', 'CEC-1'),
     (4, 4, 'STU004', 'JCLG2026004', 'Rahul Nair', 'MEC', 'MEC-1', 'MEC', 'MEC-1'),
     (5, 5, 'STU005', 'JCLG2026005', 'Kavya Iyer', 'HEC', 'HEC-1', 'HEC', 'HEC-1')
-) AS values(student_id, user_id, student_code, admission_no, name, class_name, section, stream_code, group_code)
+) AS values(student_id, student_code, admission_no, name, class_name, section, stream_code, group_code)
 JOIN jclg_stream stream ON stream.stream_code = values.stream_code
 JOIN jclg_group grp ON grp.group_code = values.group_code
 ON CONFLICT (student_id) DO UPDATE SET
-    user_id = EXCLUDED.user_id, student_code = EXCLUDED.student_code,
+    student_code = EXCLUDED.student_code,
     admission_no = EXCLUDED.admission_no, name = EXCLUDED.name,
     class_name = EXCLUDED.class_name, section = EXCLUDED.section,
     stream_id = EXCLUDED.stream_id, group_id = EXCLUDED.group_id;
@@ -86,18 +86,33 @@ WHERE NOT EXISTS (
     WHERE existing.student_id = values.student_id AND existing.subject_id = values.subject_id AND existing.exam_id = values.exam_id
 );
 
-INSERT INTO jclg_result (student_id, exam_id, total_marks, marks_obtained, percentage, grade, result_status, status) VALUES
-    (1, 2, 300, 256, 85.33, 'A', 'Published', 'Published'), (2, 2, 300, 267, 89.00, 'A', 'Published', 'Published'),
-    (3, 2, 300, 210, 70.00, 'B', 'Published', 'Published'), (4, 2, 300, 251, 83.67, 'A', 'Published', 'Published'),
-    (5, 2, 300, 187, 62.33, 'C', 'Published', 'Published')
-ON CONFLICT DO NOTHING;
+INSERT INTO jclg_result (student_id, exam_id, total_marks, percentage, grade, status)
+SELECT values.student_id, values.exam_id, values.total_marks, values.percentage, values.grade, 'Published'
+FROM (VALUES
+    (1, 2, 300, 85.33, 'A'), (2, 2, 300, 89.00, 'A'),
+    (3, 2, 300, 70.00, 'B'), (4, 2, 300, 83.67, 'A'),
+    (5, 2, 300, 62.33, 'C')
+) AS values(student_id, exam_id, total_marks, percentage, grade)
+WHERE NOT EXISTS (
+    SELECT 1 FROM jclg_result existing
+    WHERE existing.student_id = values.student_id AND existing.exam_id = values.exam_id
+);
 
-INSERT INTO jclg_ai_usage (student_id, module_name, tokens_used, used_at) VALUES
+INSERT INTO jclg_ai_usage (student_id, module_name, tokens_used, used_at)
+SELECT values.student_id, values.module_name, values.tokens_used, values.used_at::timestamptz
+FROM (VALUES
     (1, 'Student Analysis', 420, '2026-08-05T10:00:00+05:30'),
     (2, 'Student Analysis', 390, '2026-08-05T10:05:00+05:30'),
     (3, 'Risk Analysis', 510, '2026-08-05T10:10:00+05:30'),
     (4, 'Student Analysis', 405, '2026-08-05T10:15:00+05:30'),
-    (5, 'Risk Analysis', 560, '2026-08-05T10:20:00+05:30');
+    (5, 'Risk Analysis', 560, '2026-08-05T10:20:00+05:30')
+) AS values(student_id, module_name, tokens_used, used_at)
+WHERE NOT EXISTS (
+    SELECT 1 FROM jclg_ai_usage existing
+    WHERE existing.student_id = values.student_id
+      AND existing.module_name = values.module_name
+      AND existing.used_at = values.used_at::timestamptz
+);
 
 INSERT INTO jclg_ai_insight (student_id, stream_id, analysis_type, risk_level, recommendation)
 SELECT values.student_id, stream.stream_id, values.analysis_type, values.risk_level, values.recommendation

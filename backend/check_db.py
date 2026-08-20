@@ -8,8 +8,8 @@ engine = create_engine(DATABASE_URL)
 
 inspector = inspect(engine)
 
-# Check key tables
-for table_name in ['jclg_student', 'jclg_ai_student_analysis', 'jclg_result', 'jclg_exam', 'jclg_ai_subject_analysis']:
+# Check tables used by the current dashboard
+for table_name in ['jclg_student', 'jclg_stream', 'jclg_group', 'jclg_result', 'jclg_marks', 'jclg_ai_insight']:
     print(f"\n{table_name}:")
     try:
         columns = inspector.get_columns(table_name)

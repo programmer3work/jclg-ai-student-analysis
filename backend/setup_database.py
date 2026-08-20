@@ -14,7 +14,15 @@ def run_sql(path):
         connection.exec_driver_sql(sql)
 
 
+def setup_database():
+    engine = create_engine(DATABASE_URL)
+    schema = (ROOT / "database" / "schema.sql").read_text(encoding="utf-8")
+    seed = (ROOT / "database" / "seed.sql").read_text(encoding="utf-8")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(schema)
+        connection.exec_driver_sql(seed)
+
+
 if __name__ == "__main__":
-    run_sql(ROOT / "database" / "schema.sql")
-    run_sql(ROOT / "database" / "seed.sql")
+    setup_database()
     print("Module 4 schema and sample data are ready.")
