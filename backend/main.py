@@ -19,14 +19,18 @@ def ensure_student(student_id):
         raise HTTPException(status_code=404, detail="Student not found")
 
 
-def student_schema_columns():
+def table_schema_columns(table_name):
     with engine.connect() as connection:
         rows = connection.execute(text("""
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'jclg_student'
-        """)).scalars().all()
+            WHERE table_schema = 'public' AND table_name = :table_name
+        """), {"table_name": table_name}).scalars().all()
     return {column.lower() for column in rows}
+
+
+def student_schema_columns():
+    return table_schema_columns("jclg_student")
 
 
 def student_name_sql():
@@ -57,6 +61,27 @@ def student_section_sql():
     if "section" in columns:
         return "s.section"
     return "COALESCE(sec.section_name, 'N/A')"
+
+
+def parent_name_sql():
+    columns = table_schema_columns("jclg_parent")
+    if "name" in columns:
+        return "p.name"
+    if "first_name" in columns or "last_name" in columns:
+        return "CONCAT(COALESCE(p.first_name, ''), CASE WHEN COALESCE(p.first_name, '') <> '' AND COALESCE(p.last_name, '') <> '' THEN ' ' ELSE '' END, COALESCE(p.last_name, ''))"
+    return "'Not available'"
+
+
+def parent_contact_sql():
+    columns = table_schema_columns("jclg_parent")
+    for column in ("contact", "phone", "mobile"):
+        if column in columns:
+            return f"p.{column}"
+    return "'N/A'"
+
+
+def parent_relation_sql():
+    return "p.relation" if "relation" in table_schema_columns("jclg_parent") else "'N/A'"
 
 
 @app.get("/health")
@@ -91,6 +116,9 @@ def dashboard_statistics():
 def students():
     columns = student_schema_columns()
     stream_join = "LEFT JOIN jclg_stream st ON st.stream_id = s.stream_id" if "stream_id" in columns else "LEFT JOIN jclg_group g ON g.group_id = s.group_id LEFT JOIN jclg_stream st ON st.stream_id = g.stream_id LEFT JOIN jclg_section sec ON sec.section_id = s.section_id"
+    parent_name = parent_name_sql()
+    parent_contact = parent_contact_sql()
+    parent_relation = parent_relation_sql()
     return {"value": fetch_rows(f"""
         SELECT s.student_id,
                {student_admission_sql()} AS admission_no,
@@ -99,7 +127,7 @@ def students():
                {student_section_sql()} AS section,
                st.stream_code, st.stream_name,
                COALESCE(g.group_code, 'N/A') AS group_code,
-               p.name AS parent_name, p.contact AS parent_contact, p.relation AS parent_relation
+               {parent_name} AS parent_name, {parent_contact} AS parent_contact, {parent_relation} AS parent_relation
         FROM jclg_student s
         {stream_join}
         LEFT JOIN jclg_student_parent sp ON sp.student_id = s.student_id
