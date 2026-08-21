@@ -107,12 +107,13 @@ def dashboard_alias():
 
 @app.get("/dashboard/statistics")
 def dashboard_statistics():
+    risk_data = risk()
     return fetch_rows("""
         SELECT (SELECT COUNT(*) FROM jclg_student) AS total_students,
-               (SELECT COUNT(DISTINCT student_id) FROM jclg_ai_insight WHERE LOWER(risk_level) = 'high') AS high_risk,
+               :high_risk AS high_risk,
                (SELECT COUNT(DISTINCT student_id) FROM jclg_attendance WHERE LOWER(engagement_status) = 'improving') AS improving,
                (SELECT COUNT(*) FROM jclg_ai_insight) AS ai_insights
-    """)[0]
+    """, {"high_risk": risk_data["counts"]["high"]})[0]
 
 
 @app.get("/student")
@@ -289,7 +290,7 @@ def reports(stream_code: str | None = None):
     exam_columns = table_schema_columns("jclg_exam")
     report_exam_date = "e.exam_date" if "exam_date" in exam_columns else "e.start_date"
     insights = fetch_rows(f"""
-        SELECT i.insight_id,
+        SELECT i.insight_id, i.student_id,
                {name_expr} AS name,
                {admission_expr} AS admission_no,
                st.stream_code, i.analysis_type,
@@ -301,6 +302,10 @@ def reports(stream_code: str | None = None):
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY i.generated_at DESC, i.insight_id DESC
     """, parameters)
+    risk_by_student = {row["student_id"]: row for row in risk()["students"]}
+    for row in insights:
+        if not row["risk_level"] and row["student_id"] in risk_by_student:
+            row["risk_level"] = risk_by_student[row["student_id"]]["risk_level"]
     results = fetch_rows(f"""
         SELECT r.result_id,
                {name_expr} AS name,
