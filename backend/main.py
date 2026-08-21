@@ -69,6 +69,8 @@ def parent_name_sql():
         return "p.name"
     if "first_name" in columns or "last_name" in columns:
         return "CONCAT(COALESCE(p.first_name, ''), CASE WHEN COALESCE(p.first_name, '') <> '' AND COALESCE(p.last_name, '') <> '' THEN ' ' ELSE '' END, COALESCE(p.last_name, ''))"
+    if "guardian_name" in columns or "father_name" in columns or "mother_name" in columns:
+        return "COALESCE(NULLIF(p.guardian_name, ''), NULLIF(p.father_name, ''), NULLIF(p.mother_name, ''), 'Not available')"
     return "'Not available'"
 
 
@@ -141,18 +143,29 @@ def students():
 @app.get("/performance/{student_id}")
 def performance(student_id: int):
     ensure_student(student_id)
-    subjects = fetch_rows("""
-        SELECT m.mark_id, sub.subject_code, sub.subject_name, m.marks_obtained,
-               m.total_marks, m.exam_date, m.status, e.exam_name,
-               ROUND(AVG(m.marks_obtained) OVER (PARTITION BY m.subject_id), 2) AS subject_average
+    mark_columns = table_schema_columns("jclg_marks")
+    production_marks = "marks_id" in mark_columns and "exam_subject_id" in mark_columns
+    mark_id = "m.marks_id" if production_marks else "m.mark_id"
+    subject_id = "es.subject_id" if production_marks else "m.subject_id"
+    exam_date = "e.exam_date" if production_marks else "m.exam_date"
+    exam_id = "es.exam_id" if production_marks else "m.exam_id"
+    total_marks = "es.max_marks" if production_marks else "m.total_marks"
+    mark_status = "COALESCE(m.grade, 'Published')" if production_marks else "m.status"
+    mark_join = "JOIN jclg_exam_subject es ON es.exam_subject_id = m.exam_subject_id" if production_marks else ""
+    subjects = fetch_rows(f"""
+        SELECT {mark_id} AS mark_id, sub.subject_code, sub.subject_name, m.marks_obtained,
+               {total_marks} AS total_marks, {exam_date} AS exam_date, {mark_status} AS status, e.exam_name,
+               ROUND(AVG(m.marks_obtained) OVER (PARTITION BY {subject_id}), 2) AS subject_average
         FROM jclg_marks m
-        JOIN jclg_subject sub ON sub.subject_id = m.subject_id
-        JOIN jclg_exam e ON e.exam_id = m.exam_id
+        {mark_join}
+        JOIN jclg_subject sub ON sub.subject_id = {subject_id}
+        JOIN jclg_exam e ON e.exam_id = {exam_id}
         WHERE m.student_id = :student_id
-        ORDER BY m.exam_date, sub.subject_name
+        ORDER BY {exam_date}, sub.subject_name
     """, {"student_id": student_id})
-    results = fetch_rows("""
-        SELECT r.result_id, e.exam_name, r.total_marks, r.percentage, r.grade, r.status
+    result_status = "r.result_status" if "result_status" in table_schema_columns("jclg_result") else "r.status"
+    results = fetch_rows(f"""
+        SELECT r.result_id, e.exam_name, r.total_marks, r.percentage, r.grade, {result_status} AS status
         FROM jclg_result r JOIN jclg_exam e ON e.exam_id = r.exam_id
         WHERE r.student_id = :student_id ORDER BY e.exam_date
     """, {"student_id": student_id})
@@ -163,10 +176,14 @@ def performance(student_id: int):
 @app.get("/engagement/{student_id}")
 def engagement(student_id: int):
     ensure_student(student_id)
-    return fetch_rows("""
-        SELECT ROUND(AVG(CASE WHEN LOWER(CAST(status AS TEXT)) IN ('true', 'present', 'attended', 'yes') THEN 100.0 ELSE 0.0 END), 2) AS attendance_percent,
-               ROUND(AVG(assignments_completed), 2) AS assignments_completed,
-               ROUND(AVG(participation_score), 2) AS participation_score,
+    attendance_columns = table_schema_columns("jclg_attendance")
+    attendance_status = "status" if "status" in attendance_columns else "engagement_status"
+    assignments = "NULL" if "assignments_completed" not in attendance_columns else "assignments_completed"
+    participation = "NULL" if "participation_score" not in attendance_columns else "participation_score"
+    return fetch_rows(f"""
+        SELECT ROUND(AVG(CASE WHEN LOWER(CAST({attendance_status} AS TEXT)) IN ('true', 'present', 'attended', 'yes') THEN 100.0 ELSE 0.0 END), 2) AS attendance_percent,
+               ROUND(AVG({assignments}), 2) AS assignments_completed,
+               ROUND(AVG({participation}), 2) AS participation_score,
                (ARRAY_AGG(engagement_status ORDER BY attendance_date DESC))[1] AS status,
                COUNT(*) AS attendance_records
         FROM jclg_attendance WHERE student_id = :student_id
@@ -212,6 +229,17 @@ def risk():
         ) marks ON marks.student_id = i.student_id
         WHERE i.row_number = 1 ORDER BY s.student_id
     """, {"attendance_threshold": RISK_ATTENDANCE_THRESHOLD, "marks_threshold": RISK_MARKS_THRESHOLD})
+    for row in rows:
+        if not row["risk_level"]:
+            attendance = float(row["attendance_percent"] or 0)
+            average_marks = float(row["average_marks"] or 0)
+            if attendance < RISK_ATTENDANCE_THRESHOLD or average_marks < RISK_MARKS_THRESHOLD:
+                row["risk_level"] = "high"
+            elif attendance < 85 or average_marks < 75:
+                row["risk_level"] = "moderate"
+            else:
+                row["risk_level"] = "low"
+            row["primary_indicator"] = "Derived from attendance and marks"
     counts = {"low": 0, "moderate": 0, "high": 0}
     for row in rows:
         if row["risk_level"] in counts:
@@ -242,8 +270,8 @@ def recommendations(student_id: int, stream_code: str | None = None):
                COALESCE(g.group_code, 'N/A') AS group_code
         FROM jclg_ai_insight i
         JOIN jclg_student s ON s.student_id = i.student_id
-        LEFT JOIN jclg_stream st ON st.stream_id = i.stream_id
         LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(i.stream_id, g.stream_id)
         WHERE i.student_id = :student_id AND (:stream_code IS NULL OR COALESCE(st.stream_code, 'N/A') = :stream_code)
         ORDER BY i.generated_at DESC, i.insight_id DESC
     """, {"student_id": student_id, "stream_code": stream_code})
@@ -273,11 +301,11 @@ def reports(stream_code: str | None = None):
                {name_expr} AS name,
                {admission_expr} AS admission_no,
                st.stream_code, e.exam_name,
-               r.total_marks, r.percentage, r.grade, r.status
+               r.total_marks, r.percentage, r.grade, {"r.result_status" if "result_status" in table_schema_columns("jclg_result") else "r.status"} AS status
         FROM jclg_result r
         JOIN jclg_student s ON s.student_id = r.student_id
         LEFT JOIN jclg_group g ON g.group_id = s.group_id
-        LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(g.stream_id, s.stream_id)
+        LEFT JOIN jclg_stream st ON st.stream_id = g.stream_id
         JOIN jclg_exam e ON e.exam_id = r.exam_id
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY e.exam_date DESC, s.student_id

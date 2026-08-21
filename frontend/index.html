@@ -319,15 +319,20 @@ async function loadPerformanceTrends() {
   document.getElementById("performanceSection").querySelector(".module-error").textContent = "";
   const button = document.querySelector("#performanceSection button");
   setButtonBusy(button, true, "Loading...");
-  const data = await fetchJson(API_ENDPOINTS.performance + id);
-  const student = students.find(item => String(item.student_id) === id);
-  document.getElementById("performanceContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
-  const rows = data.subjects || [];
-  const average = Number(data.average?.average_marks || 0);
-  renderMetrics("performanceSummary", [{label: "Subjects tracked", value: rows.length}, {label: "Average marks", value: average.toFixed(1)}]);
-  document.getElementById("performanceChart").innerHTML = rows.length ? `<div class="bar-chart">${rows.map(row => `<div class="bar-row"><span>${escapeHtml(row.subject_name || "Subject")}</span><div class="bar-track"><i style="width:${Math.min(Number(row.marks_obtained || 0), 100)}%"></i></div><b>${escapeHtml(row.marks_obtained)}</b></div>`).join("")}</div>` : `<div class="empty-state">No academic records available.</div>`;
-  renderTable("performanceTable", [{label: "Subject", key: "subject_name"}, {label: "Marks", key: "marks_obtained"}, {label: "Average", key: "subject_average"}, {label: "Exam", key: "exam_name"}, {label: "Status", key: "status"}], rows, "No academic records available.");
-  setButtonBusy(button, false);
+  try {
+    const data = await fetchJson(API_ENDPOINTS.performance + id);
+    const student = students.find(item => String(item.student_id) === id);
+    document.getElementById("performanceContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
+    const rows = data.subjects || [];
+    const average = Number(data.average?.average_marks || 0);
+    renderMetrics("performanceSummary", [{label: "Subjects tracked", value: rows.length}, {label: "Average marks", value: average.toFixed(1)}]);
+    document.getElementById("performanceChart").innerHTML = rows.length ? `<div class="bar-chart">${rows.map(row => `<div class="bar-row"><span>${escapeHtml(row.subject_name || "Subject")}</span><div class="bar-track"><i style="width:${Math.min(Number(row.marks_obtained || 0), 100)}%"></i></div><b>${escapeHtml(row.marks_obtained)}</b></div>`).join("")}</div>` : `<div class="empty-state">No academic records available.</div>`;
+    renderTable("performanceTable", [{label: "Subject", key: "subject_name"}, {label: "Marks", key: "marks_obtained"}, {label: "Average", key: "subject_average"}, {label: "Exam", key: "exam_name"}, {label: "Status", key: "status"}], rows, "No academic records available.");
+  } catch {
+    document.getElementById("performanceSection").querySelector(".module-error").textContent = "Performance data is unavailable for this student.";
+  } finally {
+    setButtonBusy(button, false);
+  }
 }
 
 // Engagement
@@ -337,15 +342,20 @@ async function loadEngagementAnalysis() {
   document.getElementById("engagementSection").querySelector(".module-error").textContent = "";
   const button = document.querySelector("#engagementSection button");
   setButtonBusy(button, true, "Loading...");
-  const data = await fetchJson(API_ENDPOINTS.progressSummary + id);
-  const student = students.find(item => String(item.student_id) === id);
-  document.getElementById("engagementContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
-  renderMetrics("engagementSummary", [{label: "Attendance", value: `${data.attendance_percent ?? 0}%`}, {label: "Assignments", value: data.assignments_completed ?? 0}, {label: "Participation", value: data.participation_score ?? 0}, {label: "Status", value: data.status || "No data"}]);
-  const attendance = Math.min(Number(data.attendance_percent || 0), 100);
-  const participation = Math.min(Number(data.participation_score || 0) * 10, 100);
-  document.getElementById("engagementChart").innerHTML = `<div class="attendance-gauge" style="--attendance:${attendance * 3.6}deg"><div><strong>${attendance.toFixed(0)}%</strong><span>attendance</span></div></div>`;
-  document.getElementById("engagementBreakdown").innerHTML = `<div class="signal-row"><span><i class="signal-dot attendance-dot"></i>Attendance</span><strong>${attendance.toFixed(1)}%</strong></div><div class="signal-track"><i style="width:${attendance}%"></i></div><div class="signal-row"><span><i class="signal-dot participation-dot"></i>Participation</span><strong>${Number(data.participation_score || 0).toFixed(1)} / 10</strong></div><div class="signal-track participation-track"><i style="width:${participation}%"></i></div><div class="engagement-note"><span class="pulse-dot"></span>${escapeHtml(data.status || "No status reported")}</div>`;
-  setButtonBusy(button, false);
+  try {
+    const data = await fetchJson(API_ENDPOINTS.progressSummary + id);
+    const student = students.find(item => String(item.student_id) === id);
+    document.getElementById("engagementContext").textContent = student ? `${student.name} · ${student.class_name} · ${student.admission_no}` : "";
+    renderMetrics("engagementSummary", [{label: "Attendance", value: `${data.attendance_percent ?? 0}%`}, {label: "Assignments", value: data.assignments_completed ?? "Not tracked"}, {label: "Participation", value: data.participation_score ?? "Not tracked"}, {label: "Status", value: data.status || "No data"}]);
+    const attendance = Math.min(Number(data.attendance_percent || 0), 100);
+    const participation = Math.min(Number(data.participation_score || 0) * 10, 100);
+    document.getElementById("engagementChart").innerHTML = `<div class="attendance-gauge" style="--attendance:${attendance * 3.6}deg"><div><strong>${attendance.toFixed(0)}%</strong><span>attendance</span></div></div>`;
+    document.getElementById("engagementBreakdown").innerHTML = `<div class="signal-row"><span><i class="signal-dot attendance-dot"></i>Attendance</span><strong>${attendance.toFixed(1)}%</strong></div><div class="signal-track"><i style="width:${attendance}%"></i></div><div class="signal-row"><span><i class="signal-dot participation-dot"></i>Participation</span><strong>${data.participation_score == null ? "Not tracked" : `${Number(data.participation_score).toFixed(1)} / 10`}</strong></div><div class="signal-track participation-track"><i style="width:${participation}%"></i></div><div class="engagement-note"><span class="pulse-dot"></span>${escapeHtml(data.status || "No status reported")}</div>`;
+  } catch {
+    document.getElementById("engagementSection").querySelector(".module-error").textContent = "Engagement data is unavailable for this student.";
+  } finally {
+    setButtonBusy(button, false);
+  }
 }
 
 // Risk
@@ -401,12 +411,17 @@ async function loadRecommendations() {
 
   const button = document.querySelector("#recommendationsSection button");
   setButtonBusy(button, true, "Generating...");
-  const data = await fetchJson(`${API_ENDPOINTS.recommendations}${id}?stream_code=${encodeURIComponent(courseStream)}`);
-  const recommendations = data.recommendations || [];
-  document.getElementById("recommendationReport").innerHTML = recommendations.length
-    ? recommendations.map(item => `<article class="recommendation-card"><p>${escapeHtml(item.recommendation)}</p><small>${escapeHtml(item.stream_code)} | ${escapeHtml(item.analysis_type)} | ${escapeHtml(item.risk_level)}</small></article>`).join("")
-    : `<div class="empty-state">No recommendation is available for this student and stream.</div>`;
-  setButtonBusy(button, false);
+  try {
+    const data = await fetchJson(`${API_ENDPOINTS.recommendations}${id}?stream_code=${encodeURIComponent(courseStream)}`);
+    const recommendations = data.recommendations || [];
+    document.getElementById("recommendationReport").innerHTML = recommendations.length
+      ? recommendations.map(item => `<article class="recommendation-card"><p>${escapeHtml(item.recommendation)}</p><small>${escapeHtml(item.stream_code)} | ${escapeHtml(item.analysis_type)} | ${escapeHtml(item.risk_level)}</small></article>`).join("")
+      : `<div class="empty-state">No recommendation is available for this student and stream.</div>`;
+  } catch {
+    document.getElementById("recommendationReport").innerHTML = `<div class="empty-state">Recommendations are unavailable for this student.</div>`;
+  } finally {
+    setButtonBusy(button, false);
+  }
 }
 
 async function loadClassReport() {
@@ -414,13 +429,18 @@ async function loadClassReport() {
   const className = document.getElementById("alertsClass").value;
   const button = document.querySelector("#alertsSection > button");
   setButtonBusy(button, true, "Loading...");
-  const data = await fetchJson(`${API_ENDPOINTS.reports}${className ? `?stream_code=${encodeURIComponent(className)}` : ""}`);
-  const alerts = data.alerts || [];
-  renderMetrics("alertsList", [{label: "Alerts", value: alerts.length}, {label: "AI insights", value: (data.insights || []).length}, {label: "Results", value: (data.results || []).length}, {label: "AI usage", value: (data.ai_usage || []).length}]);
-  renderTable("alertsReport", [{label: "Type", key: "type"}, {label: "Student", key: "student"}, {label: "Level", key: "level"}, {label: "Message", key: "message"}], alerts, "No alerts for this branch.");
-  renderTable("insightsReport", [{label: "Analysis", key: "analysis_type"}, {label: "Student", key: "name"}, {label: "Risk", key: "risk_level"}, {label: "Recommendation", key: "recommendation"}], data.insights || [], "No AI insights available.");
-  renderTable("resultsReport", [{label: "Student", key: "name"}, {label: "Exam", key: "exam_name"}, {label: "Percentage", key: "percentage"}, {label: "Grade", key: "grade"}, {label: "Status", key: "status"}], data.results || [], "No result records available.");
-  setButtonBusy(button, false);
+  try {
+    const data = await fetchJson(`${API_ENDPOINTS.reports}${className ? `?stream_code=${encodeURIComponent(className)}` : ""}`);
+    const alerts = data.alerts || [];
+    renderMetrics("alertsList", [{label: "Alerts", value: alerts.length}, {label: "AI insights", value: (data.insights || []).length}, {label: "Results", value: (data.results || []).length}, {label: "AI usage", value: (data.ai_usage || []).length}]);
+    renderTable("alertsReport", [{label: "Type", key: "type"}, {label: "Student", key: "student"}, {label: "Level", key: "level"}, {label: "Message", key: "message"}], alerts, "No alerts for this branch.");
+    renderTable("insightsReport", [{label: "Analysis", key: "analysis_type"}, {label: "Student", key: "name"}, {label: "Risk", key: "risk_level"}, {label: "Recommendation", key: "recommendation"}], data.insights || [], "No AI insights available.");
+    renderTable("resultsReport", [{label: "Student", key: "name"}, {label: "Exam", key: "exam_name"}, {label: "Percentage", key: "percentage"}, {label: "Grade", key: "grade"}, {label: "Status", key: "status"}], data.results || [], "No result records available.");
+  } catch {
+    document.getElementById("alertsSection").querySelector(".module-error").textContent = "Reports are unavailable right now.";
+  } finally {
+    setButtonBusy(button, false);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", checkConnection);
