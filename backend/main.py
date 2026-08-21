@@ -19,6 +19,46 @@ def ensure_student(student_id):
         raise HTTPException(status_code=404, detail="Student not found")
 
 
+def student_schema_columns():
+    with engine.connect() as connection:
+        rows = connection.execute(text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'jclg_student'
+        """)).scalars().all()
+    return {column.lower() for column in rows}
+
+
+def student_name_sql():
+    columns = student_schema_columns()
+    if "name" in columns:
+        return "s.name"
+    return "CONCAT(COALESCE(s.first_name, ''), CASE WHEN COALESCE(s.first_name, '') <> '' AND COALESCE(s.last_name, '') <> '' THEN ' ' ELSE '' END, COALESCE(s.last_name, ''))"
+
+
+def student_admission_sql():
+    columns = student_schema_columns()
+    if "admission_no" in columns:
+        return "COALESCE(s.admission_no, s.student_code)"
+    if "student_code" in columns:
+        return "s.student_code"
+    return "COALESCE(s.admission_no, s.student_code)"
+
+
+def student_class_sql():
+    columns = student_schema_columns()
+    if "class_name" in columns:
+        return "s.class_name"
+    return "COALESCE(g.group_code, 'N/A')"
+
+
+def student_section_sql():
+    columns = student_schema_columns()
+    if "section" in columns:
+        return "s.section"
+    return "COALESCE(sec.section_name, 'N/A')"
+
+
 @app.get("/health")
 def health():
     return {"status": "healthy"}
@@ -49,14 +89,19 @@ def dashboard_statistics():
 @app.get("/student")
 @app.get("/students")
 def students():
-    return {"value": fetch_rows("""
-        SELECT s.student_id, s.admission_no, s.name, s.class_name, s.section,
+    columns = student_schema_columns()
+    stream_join = "LEFT JOIN jclg_stream st ON st.stream_id = s.stream_id" if "stream_id" in columns else "LEFT JOIN jclg_group g ON g.group_id = s.group_id LEFT JOIN jclg_stream st ON st.stream_id = g.stream_id LEFT JOIN jclg_section sec ON sec.section_id = s.section_id"
+    return {"value": fetch_rows(f"""
+        SELECT s.student_id,
+               {student_admission_sql()} AS admission_no,
+               {student_name_sql()} AS name,
+               {student_class_sql()} AS class_name,
+               {student_section_sql()} AS section,
                st.stream_code, st.stream_name,
                COALESCE(g.group_code, 'N/A') AS group_code,
                p.name AS parent_name, p.contact AS parent_contact, p.relation AS parent_relation
         FROM jclg_student s
-        LEFT JOIN jclg_stream st ON st.stream_id = s.stream_id
-        LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        {stream_join}
         LEFT JOIN jclg_student_parent sp ON sp.student_id = s.student_id
         LEFT JOIN jclg_parent p ON p.parent_id = sp.parent_id
         ORDER BY s.student_id
@@ -100,12 +145,18 @@ def engagement(student_id: int):
 
 @app.get("/risk")
 def risk():
-    rows = fetch_rows("""
+    columns = student_schema_columns()
+    student_join = "JOIN jclg_student s ON s.student_id = i.student_id" if "stream_id" in columns or "name" in columns or "first_name" in columns else "JOIN jclg_student s ON s.student_id = i.student_id"
+    rows = fetch_rows(f"""
         WITH current_insight AS (
             SELECT i.*, ROW_NUMBER() OVER (PARTITION BY i.student_id ORDER BY i.generated_at DESC, i.insight_id DESC) AS row_number
             FROM jclg_ai_insight i
         )
-        SELECT i.student_id, s.name, s.admission_no, s.class_name, s.section,
+        SELECT i.student_id,
+               {student_name_sql()} AS name,
+               {student_admission_sql()} AS admission_no,
+               {student_class_sql()} AS class_name,
+               {student_section_sql()} AS section,
                st.stream_code, LOWER(i.risk_level) AS risk_level, i.analysis_type, i.recommendation,
                i.generated_at,
                COALESCE(att.attendance_percent, 0) AS attendance_percent,
@@ -116,8 +167,11 @@ def risk():
                    WHEN LOWER(i.risk_level) <> 'low' THEN 'AI risk assessment'
                    ELSE 'Stable indicators'
                END AS primary_indicator
-        FROM current_insight i JOIN jclg_student s ON s.student_id = i.student_id
-        JOIN jclg_stream st ON st.stream_id = s.stream_id
+        FROM current_insight i
+        {student_join}
+        LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(i.stream_id, g.stream_id)
+        LEFT JOIN jclg_section sec ON sec.section_id = s.section_id
         LEFT JOIN (
             SELECT student_id, AVG(CASE WHEN status THEN 100.0 ELSE 0.0 END) AS attendance_percent
             FROM jclg_attendance GROUP BY student_id
@@ -169,25 +223,41 @@ def recommendations(student_id: int, stream_code: str | None = None):
 @app.get("/reports")
 def reports(stream_code: str | None = None):
     parameters = {"stream_code": stream_code}
-    insights = fetch_rows("""
-        SELECT i.insight_id, s.name, s.admission_no, st.stream_code, i.analysis_type,
+    name_expr = student_name_sql()
+    admission_expr = student_admission_sql()
+    insights = fetch_rows(f"""
+        SELECT i.insight_id,
+               {name_expr} AS name,
+               {admission_expr} AS admission_no,
+               st.stream_code, i.analysis_type,
                i.risk_level, i.recommendation, i.generated_at
-        FROM jclg_ai_insight i JOIN jclg_student s ON s.student_id = i.student_id
-        JOIN jclg_stream st ON st.stream_id = i.stream_id
+        FROM jclg_ai_insight i
+        JOIN jclg_student s ON s.student_id = i.student_id
+        LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(i.stream_id, g.stream_id)
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY i.generated_at DESC, i.insight_id DESC
     """, parameters)
-    results = fetch_rows("""
-        SELECT r.result_id, s.name, s.admission_no, st.stream_code, e.exam_name,
+    results = fetch_rows(f"""
+        SELECT r.result_id,
+               {name_expr} AS name,
+               {admission_expr} AS admission_no,
+               st.stream_code, e.exam_name,
                r.total_marks, r.percentage, r.grade, r.status
-        FROM jclg_result r JOIN jclg_student s ON s.student_id = r.student_id
-        JOIN jclg_stream st ON st.stream_id = s.stream_id JOIN jclg_exam e ON e.exam_id = r.exam_id
+        FROM jclg_result r
+        JOIN jclg_student s ON s.student_id = r.student_id
+        LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(g.stream_id, s.stream_id)
+        JOIN jclg_exam e ON e.exam_id = r.exam_id
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY e.exam_date DESC, s.student_id
     """, parameters)
-    usage = fetch_rows("""
-        SELECT u.usage_id, s.name, u.module_name, u.tokens_used, u.used_at
-        FROM jclg_ai_usage u JOIN jclg_student s ON s.student_id = u.student_id
+    usage = fetch_rows(f"""
+        SELECT u.usage_id,
+               {name_expr} AS name,
+               u.module_name, u.tokens_used, u.used_at
+        FROM jclg_ai_usage u
+        JOIN jclg_student s ON s.student_id = u.student_id
         ORDER BY u.used_at DESC, u.usage_id DESC
     """)
     alerts = [{"type": "Risk", "student": row["name"], "message": row["recommendation"], "level": row["risk_level"]} for row in insights if row["risk_level"].lower() != "low"]
