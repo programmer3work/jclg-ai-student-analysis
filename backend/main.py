@@ -315,14 +315,6 @@ def reports(stream_code: str | None = None):
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY {report_exam_date} DESC, s.student_id
     """, parameters)
-    usage_columns = table_schema_columns("jclg_ai_usage")
-    usage = fetch_rows(f"""
-        SELECT u.usage_id,
-               {name_expr} AS name,
-               u.module_name, u.tokens_used, u.used_at
-        FROM jclg_ai_usage u
-        JOIN jclg_student s ON s.student_id = u.student_id
-        ORDER BY u.used_at DESC, u.usage_id DESC
-    """) if "student_id" in usage_columns else []
-    alerts = [{"type": "Risk", "student": row["name"], "message": row["recommendation"], "level": row["risk_level"]} for row in insights if row["risk_level"].lower() != "low"]
+    usage = []
+    alerts = [{"type": "Risk", "student": row["name"], "message": row["recommendation"], "level": row["risk_level"] or "low"} for row in insights if (row["risk_level"] or "low").lower() != "low"]
     return {"insights": insights, "results": results, "ai_usage": usage, "alerts": alerts}
