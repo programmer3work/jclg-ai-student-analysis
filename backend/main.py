@@ -147,7 +147,9 @@ def performance(student_id: int):
     production_marks = "marks_id" in mark_columns and "exam_subject_id" in mark_columns
     mark_id = "m.marks_id" if production_marks else "m.mark_id"
     subject_id = "es.subject_id" if production_marks else "m.subject_id"
-    exam_date = "e.exam_date" if production_marks else "m.exam_date"
+    exam_columns = table_schema_columns("jclg_exam")
+    exam_date = "e.exam_date" if "exam_date" in exam_columns else "e.start_date"
+    exam_date = exam_date if production_marks else "m.exam_date"
     exam_id = "es.exam_id" if production_marks else "m.exam_id"
     total_marks = "es.max_marks" if production_marks else "m.total_marks"
     mark_status = "COALESCE(m.grade, 'Published')" if production_marks else "m.status"
@@ -178,8 +180,8 @@ def engagement(student_id: int):
     ensure_student(student_id)
     attendance_columns = table_schema_columns("jclg_attendance")
     attendance_status = "status" if "status" in attendance_columns else "engagement_status"
-    assignments = "NULL" if "assignments_completed" not in attendance_columns else "assignments_completed"
-    participation = "NULL" if "participation_score" not in attendance_columns else "participation_score"
+    assignments = "NULL::numeric" if "assignments_completed" not in attendance_columns else "assignments_completed"
+    participation = "NULL::numeric" if "participation_score" not in attendance_columns else "participation_score"
     return fetch_rows(f"""
         SELECT ROUND(AVG(CASE WHEN LOWER(CAST({attendance_status} AS TEXT)) IN ('true', 'present', 'attended', 'yes') THEN 100.0 ELSE 0.0 END), 2) AS attendance_percent,
                ROUND(AVG({assignments}), 2) AS assignments_completed,
@@ -283,6 +285,8 @@ def reports(stream_code: str | None = None):
     parameters = {"stream_code": stream_code}
     name_expr = student_name_sql()
     admission_expr = student_admission_sql()
+    exam_columns = table_schema_columns("jclg_exam")
+    report_exam_date = "e.exam_date" if "exam_date" in exam_columns else "e.start_date"
     insights = fetch_rows(f"""
         SELECT i.insight_id,
                {name_expr} AS name,
@@ -308,7 +312,7 @@ def reports(stream_code: str | None = None):
         LEFT JOIN jclg_stream st ON st.stream_id = g.stream_id
         JOIN jclg_exam e ON e.exam_id = r.exam_id
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
-        ORDER BY e.exam_date DESC, s.student_id
+        ORDER BY {report_exam_date} DESC, s.student_id
     """, parameters)
     usage = fetch_rows(f"""
         SELECT u.usage_id,
