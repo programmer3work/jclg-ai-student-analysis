@@ -19,5 +19,5 @@
     "moderate": "Monitor attendance and provide guided revision support.",
     "low": "Continue regular revision and subject practice."
   },
-  "exam_names": ["Unit Test 1", "Quarterly Examination", "Half-Yearly Examination"]
+  "exam_names": ["Semester 1", "Mid Term Exams", "Final Semester"]
 }
