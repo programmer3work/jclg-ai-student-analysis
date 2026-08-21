@@ -166,10 +166,11 @@ def performance(student_id: int):
         ORDER BY {exam_date}, sub.subject_name
     """, {"student_id": student_id})
     result_status = "r.result_status" if "result_status" in table_schema_columns("jclg_result") else "r.status"
+    result_exam_date = "e.exam_date" if "exam_date" in exam_columns else "e.start_date"
     results = fetch_rows(f"""
         SELECT r.result_id, e.exam_name, r.total_marks, r.percentage, r.grade, {result_status} AS status
         FROM jclg_result r JOIN jclg_exam e ON e.exam_id = r.exam_id
-        WHERE r.student_id = :student_id ORDER BY e.exam_date
+        WHERE r.student_id = :student_id ORDER BY {result_exam_date}
     """, {"student_id": student_id})
     average = fetch_rows("SELECT ROUND(AVG(marks_obtained), 2) AS average_marks, COUNT(*) AS recorded_marks FROM jclg_marks WHERE student_id = :student_id", {"student_id": student_id})[0]
     return {"student_id": student_id, "average": average, "subjects": subjects, "results": results}
@@ -314,6 +315,7 @@ def reports(stream_code: str | None = None):
         WHERE (:stream_code IS NULL OR st.stream_code = :stream_code)
         ORDER BY {report_exam_date} DESC, s.student_id
     """, parameters)
+    usage_columns = table_schema_columns("jclg_ai_usage")
     usage = fetch_rows(f"""
         SELECT u.usage_id,
                {name_expr} AS name,
@@ -321,6 +323,6 @@ def reports(stream_code: str | None = None):
         FROM jclg_ai_usage u
         JOIN jclg_student s ON s.student_id = u.student_id
         ORDER BY u.used_at DESC, u.usage_id DESC
-    """)
+    """) if "student_id" in usage_columns else []
     alerts = [{"type": "Risk", "student": row["name"], "message": row["recommendation"], "level": row["risk_level"]} for row in insights if row["risk_level"].lower() != "low"]
     return {"insights": insights, "results": results, "ai_usage": usage, "alerts": alerts}
