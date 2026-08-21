@@ -1,0 +1,23 @@
+{
+  "streams": [
+    {"code": "MPC", "name": "Mathematics, Physics, Chemistry"},
+    {"code": "BiPC", "name": "Biology, Physics, Chemistry"},
+    {"code": "MEC", "name": "Mathematics, Economics, Commerce"},
+    {"code": "CEC", "name": "Civics, Economics, Commerce"},
+    {"code": "HEC", "name": "History, Economics, Civics"}
+  ],
+  "student_branches": {
+    "12": "MPC", "13": "MPC", "14": "BiPC", "15": "BiPC",
+    "16": "MEC", "17": "MEC", "18": "CEC", "19": "CEC",
+    "20": "HEC", "21": "HEC"
+  },
+  "risk_by_student": {
+    "12": "high", "14": "moderate", "16": "high", "18": "moderate", "20": "high"
+  },
+  "recommendations": {
+    "high": "Immediate academic support and attendance follow-up recommended.",
+    "moderate": "Monitor attendance and provide guided revision support.",
+    "low": "Continue regular revision and subject practice."
+  },
+  "exam_names": ["Unit Test 1", "Quarterly Examination", "Half-Yearly Examination"]
+}
