@@ -92,7 +92,9 @@ def health():
 @app.get("/config")
 def application_config():
     streams = fetch_rows("SELECT stream_id, stream_code, stream_name FROM jclg_stream ORDER BY stream_code")
-    subjects = fetch_rows("SELECT subject_id, subject_code, subject_name, stream_id FROM jclg_subject ORDER BY stream_id, subject_name")
+    subject_columns = table_schema_columns("jclg_subject")
+    subject_stream = "stream_id" if "stream_id" in subject_columns else "NULL"
+    subjects = fetch_rows(f"SELECT subject_id, subject_code, subject_name, {subject_stream} AS stream_id FROM jclg_subject ORDER BY subject_name")
     return {"streams": streams, "classes": [row["stream_code"] for row in streams], "subjects": subjects, "languages": SUPPORTED_LANGUAGES, "default_language": DEFAULT_LANGUAGE, "analysis_types": ANALYSIS_TYPES, "risk_levels": RISK_LEVELS}
 
 
