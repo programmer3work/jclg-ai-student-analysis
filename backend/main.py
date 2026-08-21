@@ -31,6 +31,11 @@ def application_config():
     return {"streams": streams, "classes": [row["stream_code"] for row in streams], "subjects": subjects, "languages": SUPPORTED_LANGUAGES, "default_language": DEFAULT_LANGUAGE, "analysis_types": ANALYSIS_TYPES, "risk_levels": RISK_LEVELS}
 
 
+@app.get("/dashboard")
+def dashboard_alias():
+    return dashboard_statistics()
+
+
 @app.get("/dashboard/statistics")
 def dashboard_statistics():
     return fetch_rows("""
@@ -41,6 +46,7 @@ def dashboard_statistics():
     """)[0]
 
 
+@app.get("/student")
 @app.get("/students")
 def students():
     return {"value": fetch_rows("""
