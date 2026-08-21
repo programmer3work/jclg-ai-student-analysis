@@ -15,7 +15,10 @@ def required_setting(name):
 DATABASE_URL = required_setting("DATABASE_URL")
 FRONTEND_ORIGINS = [
     origin.strip()
-    for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:3000,http://localhost:5500,http://127.0.0.1:3000,http://127.0.0.1:5500").split(",")
+    for origin in os.getenv(
+        "FRONTEND_ORIGINS",
+        "http://localhost:3000,http://localhost:5500,http://127.0.0.1:3000,http://127.0.0.1:5500,http://127.0.0.1:15004,http://127.0.0.1:16004,http://16.112.236.67:15004,http://16.112.236.67:16004"
+    ).split(",")
     if origin.strip()
 ]
 SUPPORTED_LANGUAGES = [

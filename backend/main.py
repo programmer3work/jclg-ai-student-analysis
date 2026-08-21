@@ -45,11 +45,12 @@ def dashboard_statistics():
 def students():
     return {"value": fetch_rows("""
         SELECT s.student_id, s.admission_no, s.name, s.class_name, s.section,
-               st.stream_code, st.stream_name, g.group_code,
+               st.stream_code, st.stream_name,
+               COALESCE(g.group_code, 'N/A') AS group_code,
                p.name AS parent_name, p.contact AS parent_contact, p.relation AS parent_relation
         FROM jclg_student s
-        JOIN jclg_stream st ON st.stream_id = s.stream_id
-        JOIN jclg_group g ON g.group_id = s.group_id
+        LEFT JOIN jclg_stream st ON st.stream_id = s.stream_id
+        LEFT JOIN jclg_group g ON g.group_id = s.group_id
         LEFT JOIN jclg_student_parent sp ON sp.student_id = s.student_id
         LEFT JOIN jclg_parent p ON p.parent_id = sp.parent_id
         ORDER BY s.student_id
@@ -147,10 +148,13 @@ def recommendations(student_id: int, stream_code: str | None = None):
     ensure_student(student_id)
     rows = fetch_rows("""
         SELECT i.insight_id, i.analysis_type, i.risk_level, i.recommendation, i.generated_at,
-               st.stream_code, st.stream_name, g.group_code
-        FROM jclg_ai_insight i JOIN jclg_student s ON s.student_id = i.student_id
-        JOIN jclg_stream st ON st.stream_id = i.stream_id JOIN jclg_group g ON g.group_id = s.group_id
-        WHERE i.student_id = :student_id AND (:stream_code IS NULL OR st.stream_code = :stream_code)
+               COALESCE(st.stream_code, 'N/A') AS stream_code, COALESCE(st.stream_name, 'Unknown') AS stream_name,
+               COALESCE(g.group_code, 'N/A') AS group_code
+        FROM jclg_ai_insight i
+        JOIN jclg_student s ON s.student_id = i.student_id
+        LEFT JOIN jclg_stream st ON st.stream_id = i.stream_id
+        LEFT JOIN jclg_group g ON g.group_id = s.group_id
+        WHERE i.student_id = :student_id AND (:stream_code IS NULL OR COALESCE(st.stream_code, 'N/A') = :stream_code)
         ORDER BY i.generated_at DESC, i.insight_id DESC
     """, {"student_id": student_id, "stream_code": stream_code})
     return {"student_id": student_id, "stream_code": stream_code, "recommendations": rows}
