@@ -134,7 +134,7 @@ def performance(student_id: int):
 def engagement(student_id: int):
     ensure_student(student_id)
     return fetch_rows("""
-        SELECT ROUND(AVG(CASE WHEN status THEN 100.0 ELSE 0.0 END), 2) AS attendance_percent,
+        SELECT ROUND(AVG(CASE WHEN LOWER(CAST(status AS TEXT)) IN ('true', 'present', 'attended', 'yes') THEN 100.0 ELSE 0.0 END), 2) AS attendance_percent,
                ROUND(AVG(assignments_completed), 2) AS assignments_completed,
                ROUND(AVG(participation_score), 2) AS participation_score,
                (ARRAY_AGG(engagement_status ORDER BY attendance_date DESC))[1] AS status,
@@ -173,7 +173,7 @@ def risk():
         LEFT JOIN jclg_stream st ON st.stream_id = COALESCE(i.stream_id, g.stream_id)
         LEFT JOIN jclg_section sec ON sec.section_id = s.section_id
         LEFT JOIN (
-            SELECT student_id, AVG(CASE WHEN status THEN 100.0 ELSE 0.0 END) AS attendance_percent
+            SELECT student_id, AVG(CASE WHEN LOWER(CAST(status AS TEXT)) IN ('true', 'present', 'attended', 'yes') THEN 100.0 ELSE 0.0 END) AS attendance_percent
             FROM jclg_attendance GROUP BY student_id
         ) att ON att.student_id = i.student_id
         LEFT JOIN (
