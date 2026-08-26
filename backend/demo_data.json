@@ -1,10 +1,10 @@
 {
   "streams": [
-    {"code": "MPC", "name": "Mathematics, Physics, Chemistry"},
-    {"code": "BiPC", "name": "Biology, Physics, Chemistry"},
-    {"code": "MEC", "name": "Mathematics, Economics, Commerce"},
-    {"code": "CEC", "name": "Civics, Economics, Commerce"},
-    {"code": "HEC", "name": "History, Economics, Civics"}
+    {"code": "MPC", "name": "Mathematics, Physics, Chemistry", "subjects": ["Mathematics", "Physics", "Chemistry"]},
+    {"code": "BiPC", "name": "Biology, Physics, Chemistry", "subjects": ["Biology", "Physics", "Chemistry"]},
+    {"code": "MEC", "name": "Mathematics, Economics, Commerce", "subjects": ["Mathematics", "Economics", "Commerce"]},
+    {"code": "CEC", "name": "Civics, Economics, Commerce", "subjects": ["Civics", "Economics", "Commerce"]},
+    {"code": "HEC", "name": "History, Economics, Civics", "subjects": ["History", "Economics", "Civics"]}
   ],
   "student_branches": {
     "12": "MPC", "13": "MPC", "14": "BiPC", "15": "BiPC",
@@ -19,5 +19,9 @@
     "moderate": "Monitor attendance and provide guided revision support.",
     "low": "Continue regular revision and subject practice."
   },
-  "exam_names": ["Semester 1", "Mid Term Exams", "Final Semester"]
+  "exams": [
+    {"name": "Semester 1", "start_time": "09:00:00", "end_time": "12:00:00"},
+    {"name": "Mid Term Exams", "start_time": "09:00:00", "end_time": "12:00:00"},
+    {"name": "Final Semester", "start_time": "09:00:00", "end_time": "12:00:00"}
+  ]
 }
