@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 
 from config import ANALYSIS_TYPES, DATABASE_URL, DEFAULT_LANGUAGE, FRONTEND_ORIGINS, RISK_ATTENDANCE_THRESHOLD, RISK_LEVELS, RISK_MARKS_THRESHOLD, SUPPORTED_LANGUAGES
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_size=2, max_overflow=3)
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=FRONTEND_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
