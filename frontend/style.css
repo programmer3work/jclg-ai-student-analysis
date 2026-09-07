@@ -102,6 +102,11 @@ body {
   border-top: 1px solid #374151;
 }
 
+.logout-button {
+  margin: 0;
+  width: 100%;
+}
+
 /* Main Content */
 .main-content {
   flex: 1;

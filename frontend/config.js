@@ -1,5 +1,6 @@
 window.APP_CONFIG = Object.freeze({
   apiBaseUrl: "http://16.112.236.67:16004",
+  logoutUrl: "https://staging.jclg.swais.in/",
   endpoints: Object.freeze({
     config: "/config",
     health: "/health",

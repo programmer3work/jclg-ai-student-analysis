@@ -30,6 +30,9 @@
       <button class="nav-item" data-section="recommendations" onclick="showSection('recommendations', this)">AI Recommendations</button>
       <button class="nav-item" data-section="alerts" onclick="showSection('alerts', this)">Alerts & Reports</button>
     </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="logout-button" onclick="logout()">Logout</button>
+    </div>
   </aside>
 
   <!-- Main Content -->
@@ -141,6 +144,10 @@ let riskStudents = [];
 let riskLookup = new Map();
 
 // Navigation
+function logout() {
+  window.location.assign(window.APP_CONFIG.logoutUrl);
+}
+
 async function showSection(sectionName, btn) {
   document.querySelectorAll(".page-section").forEach(s => s.classList.remove("active-section"));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
