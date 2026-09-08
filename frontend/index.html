@@ -145,7 +145,8 @@ let riskLookup = new Map();
 
 // Navigation
 function logout() {
-  window.location.assign(window.APP_CONFIG.logoutUrl);
+  localStorage.clear();
+  window.location.href = window.APP_CONFIG.logoutUrl || "/";
 }
 
 async function showSection(sectionName, btn) {
